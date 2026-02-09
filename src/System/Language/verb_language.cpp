@@ -10,6 +10,7 @@
  ******************************************************************************/
 
 #include "analyze.hpp"
+#include "code_wrap.hpp"
 #include "impl_language.hpp"
 #include "observers.hpp"
 #include "packrat.hpp"
@@ -61,11 +62,22 @@ verb_language_rep::get_hyphens (string s) {
   return penalty;
 }
 
+/**
+ * @brief 按代码原子边界切分 verbatim 文本，避免将 "<#...>" 内部拆开。
+ * @param s 待切分的原始字符串。
+ * @param after 布局器建议的断行位置（可能落在原子内部）。
+ * @param left 返回断点左侧内容。
+ * @param right 返回断点右侧内容。
+ *
+ * @note 示例：当 s 为 "ab<#4E2D>cd" 且 after 落在 "<#4E2D>" 内部时，
+ * 会将断点回退到原子起止边界，避免产生非法拆分。
+ */
 void
 verb_language_rep::hyphenate (string s, int after, string& left,
                               string& right) {
-  left = s (0, after);
-  right= s (after, N (s));
+  int a= tm_snap_after_boundary_for_code_wrap (s, after);
+  left = s (0, a);
+  right= s (a, N (s));
 }
 
 string
