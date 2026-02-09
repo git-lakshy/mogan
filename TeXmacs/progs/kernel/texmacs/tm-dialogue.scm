@@ -13,7 +13,9 @@
 
 (texmacs-module (kernel texmacs tm-dialogue)
   (:use (kernel texmacs tm-define)))
-
+(import (liii json)
+        (liii time)
+        (liii list))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Questions with user interaction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -158,6 +160,124 @@
 
 (define interactive-arg-table (make-ahash-table))
 
+
+(define interactive-arg-recent-file-json
+  '((meta . ((total . 0)))
+    (files . #())))
+
+
+#|
+recent-files-remove-by-path
+按路径从最近文件缓存中删除对应条目。
+
+语法
+----
+(recent-files-remove-by-path path)
+
+参数
+----
+path : string
+    目标文件路径。用于在 `interactive-arg-recent-file-json` 的 `files`
+    列表中定位要移除的记录。
+
+返回值
+----
+unspecified
+- 函数通过副作用更新全局变量 `interactive-arg-recent-file-json`。
+- 若路径不存在，则不做任何修改。
+
+逻辑
+----
+1. 调用 `recent-files-index-by-path` 查找 `path` 在 `files` 中的索引。
+2. 若找到索引，调用 `json-drop` 删除该项。
+3. 将删除后的 JSON 结构回写到 `interactive-arg-recent-file-json`。
+|#
+(define-public (recent-files-remove-by-path path)
+  (let ((idx (recent-files-index-by-path interactive-arg-recent-file-json path)))
+    (when idx
+      (set! interactive-arg-recent-file-json
+            (json-drop interactive-arg-recent-file-json 'files idx)))))
+
+
+
+(define (recent-files-apply-lru recent-files limit)
+  (let* ((files (json-ref recent-files 'files))
+         (n (vector-length files))
+         (indexed
+          (let loop ((i 0) (acc '()))
+            (if (>= i n) acc
+                (let* ((item (vector-ref files i))
+                       (t (json-ref item 'last_open))
+                       (t (if (number? t) t 0)))
+                  (loop (+ i 1) (cons (cons i t) acc))))))
+         (sorted (sort indexed (lambda (a b) (> (cdr a) (cdr b))))))
+    (if (<= n limit)
+        (json-set recent-files 'files
+                  (list->vector
+                   (map (lambda (p) (vector-ref files (car p))) sorted)))
+        (let* ((keep (take sorted limit))
+               (drop (drop sorted limit))
+               (new-files
+                (list->vector
+                 (append
+                  (map (lambda (p)
+                         (let* ((item (vector-ref files (car p))))
+                           (json-set item 'show #t)))
+                       keep)
+                  (map (lambda (p)
+                         (let* ((item (vector-ref files (car p))))
+                           (json-set item 'show #f)))
+                       drop)))))
+          (json-set recent-files 'files new-files)))))
+
+(define (recent-files-add recent-files path name)
+  (let* ((files (json-ref recent-files 'files))
+         (idx (vector-length files))
+         (item `((path . ,path)
+                 (name . ,name)
+                 (last_open . ,(current-second))
+                 (open_count . 1)
+                 (show . #t)))
+         (total (json-ref recent-files 'meta 'total))
+         (total (if (number? total) total 0))
+         (r1 (json-set
+               (json-push recent-files 'files idx item)
+               'meta 'total (+ total 1))))
+    (recent-files-apply-lru r1 25)))
+
+(define (recent-files-set recent-files idx)
+  (let* ((item (json-ref recent-files 'files idx))
+         (path* (json-ref item 'path))
+         (name* (json-ref item 'name))
+         (count* (json-ref item 'open_count))
+         (count* (if (number? count*) count* 0))
+         (new-item `((path . ,path*)
+                     (name . ,name*)
+                     (last_open . ,(current-second))
+                     (open_count . ,(+ count* 1))
+                     (show . #t)))
+         (r1 (json-set recent-files 'files idx new-item)))
+    (recent-files-apply-lru r1 25)))
+
+
+
+(define (recent-files-index-by-path recent-files path)
+  (let ((files (json-ref recent-files 'files)))
+    (let loop ((i 0))
+      (if (>= i (vector-length files))
+          #f
+          (let ((item (vector-ref files i)))
+            (if (equal? (json-ref item 'path) path)
+                i
+                (loop (+ i 1))))))))
+
+(define (recent-files-paths recent-files)
+  (let ((files (json-ref recent-files 'files)))
+    (map (lambda (item)
+           (list (cons "0" (json-ref item 'path))))
+         (vector->list files))))
+
+
 (define (list-but l1 l2)
   (cond ((null? l1) l1)
         ((in? (car l1) l2) (list-but (cdr l1) l2))
@@ -179,6 +299,16 @@
   (and-with name (procedure-symbol-name fun)
     (symbol->string name)))
 
+(define (recent-buffer-json file-path)
+  (let* ((name (url->system (url-tail (system->url file-path))))
+         (idx (recent-files-index-by-path interactive-arg-recent-file-json file-path)))
+    (if idx
+        (set! interactive-arg-recent-file-json
+              (recent-files-set interactive-arg-recent-file-json idx))
+        (set! interactive-arg-recent-file-json
+              (recent-files-add interactive-arg-recent-file-json file-path name)))))
+
+
 (define-public (learn-interactive fun assoc-t)
   "Learn interactive values for @fun"
   (set! assoc-t (map (lambda (x) (cons (car x) (as-stree (cdr x)))) assoc-t))
@@ -186,18 +316,92 @@
   (when (symbol? fun)
     (let* ((l1 (or (ahash-ref interactive-arg-table fun) '()))
            (l2 (cons assoc-t (list-but l1 (list assoc-t)))))
-      (ahash-set! interactive-arg-table fun l2))))
+      (case fun
+        ((recent-buffer)
+          (recent-buffer-json (cdr (car (car l2)))))
+        (else (ahash-set! interactive-arg-table fun l2)))
+      )))
 
+
+#|
+learned-interactive
+读取交互命令已学习的参数候选值。
+
+语法
+----
+(learned-interactive fun)
+
+参数
+----
+fun : procedure | symbol | string
+    目标命令。函数内部会先调用 `procedure-symbol-name` 归一化为符号。
+
+返回值
+----
+list
+- 当命令是 `recent-buffer` 时：返回最近文件路径列表，元素形如
+  `(("0" . 文件路径))`。
+- 其他命令：返回 `interactive-arg-table` 中为该命令记录的历史参数列表。
+- 若无记录，返回空列表 `()`。
+
+逻辑
+----
+1. 归一化：将 `fun` 转为符号名。
+2. 分支：`recent-buffer` 走最近文件 JSON 缓存分支。
+3. 默认：从 `interactive-arg-table` 读取命令历史，缺省为 `()`。
+|#
 (define-public (learned-interactive fun)
   "Return learned list of interactive values for @fun"
   (set! fun (procedure-symbol-name fun))
-  (or (ahash-ref interactive-arg-table fun) '()))
+  (case fun
+    ((recent-buffer)
+     (recent-files-paths interactive-arg-recent-file-json))
+    (else
+     (or (ahash-ref interactive-arg-table fun) '()))))
 
+
+
+
+#|
+forget-interactive
+清除指定交互命令的已学习参数。
+
+语法
+----
+(forget-interactive fun)
+
+参数
+----
+fun : procedure | symbol | string
+    目标命令。函数内部会先调用 `procedure-symbol-name` 归一化为符号。
+
+返回值
+----
+unspecified
+- 通过副作用修改全局状态。
+- 若 `fun` 不能归一化为符号，则不执行清除操作。
+
+逻辑
+----
+1. 归一化：将 `fun` 转为符号名。
+2. 校验：仅当 `fun` 是符号时继续。
+3. 分支清理：
+   - `recent-buffer`：将最近文件列表重置为空向量 `#()`，并把计数清零。
+   - 其他命令：从 `interactive-arg-table` 中删除对应键。
+|#
 (define-public (forget-interactive fun)
   "Forget interactive values for @fun"
   (set! fun (procedure-symbol-name fun))
   (when (symbol? fun)
-    (ahash-remove! interactive-arg-table fun)))
+    (case fun
+      ((recent-buffer)
+       (set! interactive-arg-recent-file-json
+             (json-set
+               (json-set interactive-arg-recent-file-json 'files #())
+               'meta 'total 0)))
+      (else
+       (ahash-remove! interactive-arg-table fun)))))
+
 
 (define (learned-interactive-arg fun nr)
   (let* ((l (learned-interactive fun))
@@ -310,7 +514,10 @@
 
 (define (save-learned)
   (with l (ahash-table->list interactive-arg-table)
-    (save-object "$TEXMACS_HOME_PATH/system/interactive.scm" l)))
+    (save-object "$TEXMACS_HOME_PATH/system/interactive.scm" l)
+    (string-save
+      (json->string interactive-arg-recent-file-json)
+      (string->url "$TEXMACS_HOME_PATH/system/recent-files.json"))))
 
 (define (ahash-set-2! t x)
   (with (key . l) x
@@ -342,7 +549,13 @@
       (let* ((l (load-object "$TEXMACS_HOME_PATH/system/interactive.scm"))
              (old? (and (pair? l) (pair? (car l)) (list-2? (caar l))))
              (decode (if old? decode-old list->ahash-table)))
-        (set! interactive-arg-table (decode l)))))
+        (set! interactive-arg-table (decode l))))
+  (when (url-exists? "$TEXMACS_HOME_PATH/system/recent-files.json")
+      (set! interactive-arg-recent-file-json
+            (string->json
+             (string-load
+               (string->url "$TEXMACS_HOME_PATH/system/recent-files.json"))))))
+
 
 (on-entry (retrieve-learned))
 (on-exit (save-learned))
