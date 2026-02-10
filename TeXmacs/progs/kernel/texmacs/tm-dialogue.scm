@@ -162,8 +162,29 @@
 
 
 (define interactive-arg-recent-file-json
-  '((meta . ((total . 0)))
-    (files . #())))
+  `(("meta" . (("version" . 1)
+                ("total" . 0)))
+      ("files" . #())))
+
+(define (recent-file-item-valid? item)
+  (and (json-object? item)
+       (string? (json-ref item "path"))
+       (string? (json-ref item "name"))
+       (number? (json-ref item "last_open"))
+       (number? (json-ref item "open_count"))
+       (boolean? (json-ref item "show"))))
+
+(define (recent-files-json-valid? recent-files)
+  (and (json-object? recent-files)
+       (let* ((meta (json-ref recent-files "meta"))
+              (files (json-ref recent-files "files"))
+              (version (and (json-object? meta) (json-ref meta "version")))
+              (total (and (json-object? meta) (json-ref meta "total"))))
+         (and (json-object? meta)
+              (number? version)
+              (integer? total) (>= total 0)
+              (vector? files)
+              (every recent-file-item-valid? (vector->list files))))))
 
 
 #|
@@ -190,29 +211,34 @@ unspecified
 ----
 1. 调用 `recent-files-index-by-path` 查找 `path` 在 `files` 中的索引。
 2. 若找到索引，调用 `json-drop` 删除该项。
-3. 将删除后的 JSON 结构回写到 `interactive-arg-recent-file-json`。
+3. 将 `meta.total` 减一（不低于 0）。
+4. 将更新后的 JSON 结构回写到 `interactive-arg-recent-file-json`。
 |#
 (define-public (recent-files-remove-by-path path)
   (let ((idx (recent-files-index-by-path interactive-arg-recent-file-json path)))
     (when idx
-      (set! interactive-arg-recent-file-json
-            (json-drop interactive-arg-recent-file-json 'files idx)))))
+      (let* ((total (json-ref interactive-arg-recent-file-json "meta" "total"))
+             (total (if (number? total) total 0))
+             (new-total (if (<= total 0) 0 (- total 1)))
+             (r1 (json-drop interactive-arg-recent-file-json "files" idx)))
+        (set! interactive-arg-recent-file-json
+              (json-set r1 "meta" "total" new-total))))))
 
 
 
 (define (recent-files-apply-lru recent-files limit)
-  (let* ((files (json-ref recent-files 'files))
+  (let* ((files (json-ref recent-files "files"))
          (n (vector-length files))
          (indexed
           (let loop ((i 0) (acc '()))
             (if (>= i n) acc
                 (let* ((item (vector-ref files i))
-                       (t (json-ref item 'last_open))
+                       (t (json-ref item "last_open"))
                        (t (if (number? t) t 0)))
                   (loop (+ i 1) (cons (cons i t) acc))))))
          (sorted (sort indexed (lambda (a b) (> (cdr a) (cdr b))))))
     (if (<= n limit)
-        (json-set recent-files 'files
+        (json-set recent-files "files"
                   (list->vector
                    (map (lambda (p) (vector-ref files (car p))) sorted)))
         (let* ((keep (take sorted limit))
@@ -222,59 +248,59 @@ unspecified
                  (append
                   (map (lambda (p)
                          (let* ((item (vector-ref files (car p))))
-                           (json-set item 'show #t)))
+                           (json-set item "show" #t)))
                        keep)
                   (map (lambda (p)
                          (let* ((item (vector-ref files (car p))))
-                           (json-set item 'show #f)))
+                           (json-set item "show" #f)))
                        drop)))))
-          (json-set recent-files 'files new-files)))))
+          (json-set recent-files "files" new-files)))))
 
 (define (recent-files-add recent-files path name)
-  (let* ((files (json-ref recent-files 'files))
+  (let* ((files (json-ref recent-files "files"))
          (idx (vector-length files))
-         (item `((path . ,path)
-                 (name . ,name)
-                 (last_open . ,(current-second))
-                 (open_count . 1)
-                 (show . #t)))
-         (total (json-ref recent-files 'meta 'total))
+         (item `(("path" . ,path)
+                 ("name" . ,name)
+                 ("last_open" . ,(current-second))
+                 ("open_count" . 1)
+                 ("show" . #t)))
+         (total (json-ref recent-files "meta" "total"))
          (total (if (number? total) total 0))
          (r1 (json-set
-               (json-push recent-files 'files idx item)
-               'meta 'total (+ total 1))))
+               (json-push recent-files "files" idx item)
+               "meta" "total" (+ total 1))))
     (recent-files-apply-lru r1 25)))
 
 (define (recent-files-set recent-files idx)
-  (let* ((item (json-ref recent-files 'files idx))
-         (path* (json-ref item 'path))
-         (name* (json-ref item 'name))
-         (count* (json-ref item 'open_count))
+  (let* ((item (json-ref recent-files "files" idx))
+         (path* (json-ref item "path"))
+         (name* (json-ref item "name"))
+         (count* (json-ref item "open_count"))
          (count* (if (number? count*) count* 0))
-         (new-item `((path . ,path*)
-                     (name . ,name*)
-                     (last_open . ,(current-second))
-                     (open_count . ,(+ count* 1))
-                     (show . #t)))
-         (r1 (json-set recent-files 'files idx new-item)))
+         (new-item `(("path" . ,path*)
+                     ("name" . ,name*)
+                     ("last_open" . ,(current-second))
+                     ("open_count" . ,(+ count* 1))
+                     ("show" . #t)))
+         (r1 (json-set recent-files "files" idx new-item)))
     (recent-files-apply-lru r1 25)))
 
 
 
 (define (recent-files-index-by-path recent-files path)
-  (let ((files (json-ref recent-files 'files)))
+  (let ((files (json-ref recent-files "files")))
     (let loop ((i 0))
       (if (>= i (vector-length files))
           #f
           (let ((item (vector-ref files i)))
-            (if (equal? (json-ref item 'path) path)
+            (if (equal? (json-ref item "path") path)
                 i
                 (loop (+ i 1))))))))
 
 (define (recent-files-paths recent-files)
-  (let ((files (json-ref recent-files 'files)))
+  (let ((files (json-ref recent-files "files")))
     (map (lambda (item)
-           (list (cons "0" (json-ref item 'path))))
+           (list (cons "0" (json-ref item "path"))))
          (vector->list files))))
 
 
@@ -396,9 +422,9 @@ unspecified
     (case fun
       ((recent-buffer)
        (set! interactive-arg-recent-file-json
-             (json-set
-               (json-set interactive-arg-recent-file-json 'files #())
-               'meta 'total 0)))
+             `(("meta" . (("version" . 1)
+                          ("total" . 0)))
+               ("files" . #()))))
       (else
        (ahash-remove! interactive-arg-table fun)))))
 
@@ -552,9 +578,21 @@ unspecified
         (set! interactive-arg-table (decode l))))
   (when (url-exists? "$TEXMACS_HOME_PATH/system/recent-files.json")
       (set! interactive-arg-recent-file-json
-            (string->json
-             (string-load
-               (string->url "$TEXMACS_HOME_PATH/system/recent-files.json"))))))
+            (catch #t
+              (lambda ()
+                (let ((recent-files
+                       (string->json
+                        (string-load
+                         (string->url "$TEXMACS_HOME_PATH/system/recent-files.json")))))
+                  (if (recent-files-json-valid? recent-files)
+                      recent-files
+                      `(("meta" . (("version" . 1)
+                                    ("total" . 0)))
+                        ("files" . #())))))
+              (lambda args
+                `(("meta" . (("version" . 1)
+                              ("total" . 0)))
+                  ("files" . #())))))))
 
 
 (on-entry (retrieve-learned))
