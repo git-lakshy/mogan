@@ -220,8 +220,21 @@ edit_main_rep::print_doc (url name, bool conform, int first, int last) {
   }
 
   // Typeset pages for printing
+  // NOTE: We inline typeset_as_document here and defer delete_typesetter
+  // until after the rendering loop. This is necessary because display_links
+  // (called during redraw for non-screen renderers) queries global link
+  // tables via get_ids/get_links. These tables are populated by the
+  // typesetter during typesetting and cleared when the typesetter is
+  // destroyed. If we destroy the typesetter before rendering (as
+  // typeset_as_document does), hyperlinks in the PDF become unclickable
+  // because the link registrations are already gone. This particularly
+  // affects beamer/slideshow export where a temporary buffer copy has no
+  // prior link registrations from screen display. (See issue #2843)
 
-  box the_box= typeset_as_document (env, subtree (et, rp), reverse (rp));
+  env->style_init_env ();
+  env->update ();
+  typesetter ttt    = new_typesetter (env, subtree (et, rp), reverse (rp));
+  box        the_box= ::typeset (ttt);
 
   // Determine parameters for printer
 
@@ -267,6 +280,7 @@ edit_main_rep::print_doc (url name, bool conform, int first, int last) {
     }
   }
   tm_delete (ren);
+  delete_typesetter (ttt);
 }
 
 void

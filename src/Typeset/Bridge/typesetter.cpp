@@ -301,6 +301,11 @@ exec_until (typesetter ttt, path p) {
 }
 
 box
+typeset (typesetter ttt) {
+  return ttt->typeset ();
+}
+
+box
 typeset (typesetter ttt, SI& x1, SI& y1, SI& x2, SI& y2) {
   return ttt->typeset (x1, y1, x2, y2);
 }
