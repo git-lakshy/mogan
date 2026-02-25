@@ -585,11 +585,11 @@
       (case handle
         ((se) (uniform-scale (/ (+ ow sx) ow) (/ (- oh sy) oh)))
         ((sw) (uniform-scale (/ nw ow) (/ (- oh sy) oh)))
-        ((ne) (uniform-scale (/ (+ ow sx) ow) (/ nh oh)))
-        ((nw) (uniform-scale (/ nw ow) (/ nh oh)))
+        ((ne) (uniform-scale (/ (+ ow sx) ow) (/ (+ oh sy) oh)))
+        ((nw) (uniform-scale (/ nw ow) (/ (+ oh sy) oh)))
         ((e)  (when (> (+ ow sx) 0.1) (tree-set! t 1 (cm->str (+ ow sx))) (refresh-window)))
         ((w)  (when (> nw 0.1) (tree-set! t 1 (cm->str nw)) (refresh-window)))
-        ((n)  (when (> nh 0.1) (tree-set! t 2 (cm->str nh)) (refresh-window)))
+        ((n)  (when (> (+ oh sy) 0.1) (tree-set! t 2 (cm->str (+ oh sy))) (refresh-window)))
         ((s)  (when (> (- oh sy) 0.1) (tree-set! t 2 (cm->str (- oh sy))) (refresh-window)))))))
 
 (define (image-reset-drag-state!)
