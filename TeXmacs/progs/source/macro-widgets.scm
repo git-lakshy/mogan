@@ -497,7 +497,17 @@
                                  "wide-std-framed-colored"))
           string<=?)))
 
+(define (macro-editor-buffer?)
+  (and-with u (current-buffer-url)
+    (with s (url->string u)
+      (or (== s "tmfs://aux/macro-editor")
+          (string-starts? s "tmfs://aux/edit-")))))
+
 (tm-define (all-defined-macros*)
+  (with command-completion-options
+      (if (macro-editor-buffer?)
+          (list)
+          (hash-table-keys kbd-command-table))
   (with env (tm-children (get-full-env))
     (sort (list-remove-duplicates
             (append (list-difference (map get-key env)
@@ -507,9 +517,9 @@
                                            "cell-decoration" "cell-format"
                                            "wide-framed-colored"
                                            "wide-std-framed-colored"))
-                    (hash-table-keys kbd-command-table)
+                    command-completion-options
                     (tree-primitives)))
-          string<=?)))
+          string<=?))))
 
 (tm-define (open-macros-editor mode)
   (:interactive #t)
