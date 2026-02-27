@@ -113,20 +113,21 @@
   (syntax-read-preferences "python"))
 
 ;; 定义语法高亮颜色偏好设置
+;; Colors changed to be visible on both light and dark themes
 (define-preferences
-  ("syntax:python:none" "red" notify-python-syntax)                       ;; 无类型语法元素颜色
-  ("syntax:python:comment" "brown" notify-python-syntax)                  ;; 注释颜色
-  ("syntax:python:error" "dark red" notify-python-syntax)                 ;; 错误颜色
-("syntax:python:constant" "#4040c0" notify-python-syntax)               ;; 常量颜色
-  ("syntax:python:constant_number" "#4040c0" notify-python-syntax)      ;; 数字常量颜色
-  ("syntax:python:constant_string" "dark grey" notify-python-syntax)      ;; 字符串常量颜色
-  ("syntax:python:constant_char" "#333333" notify-python-syntax)        ;; 字符常量颜色
-  ("syntax:python:declare_function" "#0000c0" notify-python-syntax)     ;; 函数声明颜色
-  ("syntax:python:declare_type" "#0000c0" notify-python-syntax)         ;; 类型声明颜色
-  ("syntax:python:operator" "#8b008b" notify-python-syntax)             ;; 运算符颜色
-  ("syntax:python:operator_openclose" "#B02020" notify-python-syntax)   ;; 开闭运算符颜色
-  ("syntax:python:operator_field" "#88888" notify-python-syntax)          ;; 字段运算符颜色
-  ("syntax:python:operator_special" "orange" notify-python-syntax)        ;; 特殊运算符颜色
-  ("syntax:python:keyword" "#309090" notify-python-syntax)              ;; 关键字颜色
-  ("syntax:python:keyword_conditional" "#309090" notify-python-syntax)  ;; 条件关键字颜色
-  ("syntax:python:keyword_control" "#309090" notify-python-syntax))     ;; 控制关键字颜色
+  ("syntax:python:none" "#999999" notify-python-syntax)                       ;; Neutral Gray
+  ("syntax:python:comment" "#999999" notify-python-syntax)                    ;; Neutral Gray
+  ("syntax:python:error" "#CB2431" notify-python-syntax)                      ;; Strong Red
+  ("syntax:python:constant" "#D73A49" notify-python-syntax)                   ;; Soft Red
+  ("syntax:python:constant_number" "#D73A49" notify-python-syntax)            ;; Soft Red
+  ("syntax:python:constant_string" "#22863A" notify-python-syntax)            ;; Medium Green
+  ("syntax:python:constant_char" "#22863A" notify-python-syntax)              ;; Medium Green
+  ("syntax:python:declare_function" "#6F42C1" notify-python-syntax)           ;; Muted Purple
+  ("syntax:python:declare_type" "#B31D28" notify-python-syntax)               ;; Deep Red
+  ("syntax:python:operator" "#E36209" notify-python-syntax)                   ;; Warm Orange
+  ("syntax:python:operator_openclose" "#E36209" notify-python-syntax)         ;; Warm Orange
+  ("syntax:python:operator_field" "#999999" notify-python-syntax)             ;; Neutral Gray
+  ("syntax:python:operator_special" "#E36209" notify-python-syntax)           ;; Warm Orange
+  ("syntax:python:keyword" "#005CC5" notify-python-syntax)                    ;; Deep Blue
+  ("syntax:python:keyword_conditional" "#005CC5" notify-python-syntax)        ;; Deep Blue
+  ("syntax:python:keyword_control" "#005CC5" notify-python-syntax))           ;; Deep Blue
