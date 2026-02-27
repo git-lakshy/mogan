@@ -69,7 +69,12 @@
   (with old (get-init-tree s)
     (if (and (tree-func? old 'macro 1) (not (tm-is? val 'macro)))
         (init-env-tree s `(macro ,val))
-        (init-env-tree s val))))
+        (init-env-tree s (if (and (string? s) (string? val) (== s "font-base-size"))
+                             (with num (string->number val)
+                               (if (number? num)
+                                   (number->string (/ (round (* num 2)) 2))
+                                   val))
+                             val)))))
 
 (tm-define (init-interactive-env var)
   (:interactive #t)
