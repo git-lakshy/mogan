@@ -582,10 +582,11 @@
   ("document update times" "3" notify-doc-update-times))
 
 (define (wait-update-current-buffer)
-  (system-wait "Updating current buffer, " "please wait")
+  (set-message "Updating current buffer ..." "please wait")
   (update-current-buffer))
 
 (tm-define (update-document what)
+  (set-cursor-style "wait")
   (for (.. 0 doc-update-times)       
     (delayed    ; allow typesetting/magic to happen before next update
       (:idle 1)
@@ -596,4 +597,5 @@
               (generate-all-aux) (wait-update-current-buffer))
              ((== what "buffer") 
               (wait-update-current-buffer))
-             (else (generate-aux what)))))))
+             (else (generate-aux what))))))
+  (delayed (:idle 1) (set-cursor-style "normal")))

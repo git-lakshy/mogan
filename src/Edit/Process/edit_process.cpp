@@ -113,7 +113,7 @@ edit_process_rep::generate_bibliography (string bib, string style,
                                          string fname) {
 #ifdef USE_PLUGIN_BIBTEX
   if (N (style) == 0) style= "tm-plain";
-  system_wait ("Generating bibliography, ", "please wait");
+  set_message ("Generating bibliography ... ", "please wait");
   if (DEBUG_AUTO)
     debug_automatic << "Generating bibliography"
                     << " [" << bib << ", " << style << ", " << fname << "]\n";
@@ -420,7 +420,7 @@ make_entry (tree& D, tree t, hashmap<string, tree> refs, bool rec) {
 
 void
 edit_process_rep::generate_index (string idx) {
-  system_wait ("Generating index, ", "please wait");
+  set_message ("Generating index ...", "please wait");
   if (DEBUG_AUTO) debug_automatic << "Generating index [" << idx << "]\n";
   tree                  I= copy (buf->data->aux[idx]);
   hashmap<string, tree> R= buf->data->ref;
@@ -467,7 +467,7 @@ edit_process_rep::generate_index (string idx) {
 
 void
 edit_process_rep::generate_glossary (string gly) {
-  system_wait ("Generating glossary, ", "please wait");
+  set_message ("Generating glossary ...", "please wait");
   if (DEBUG_AUTO) debug_automatic << "Generating glossary [" << gly << "]\n";
   tree G= copy (buf->data->aux[gly]);
   if (buf->prj != NULL) G= copy (buf->prj->data->aux[gly]);

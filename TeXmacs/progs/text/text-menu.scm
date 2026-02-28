@@ -470,7 +470,7 @@
   ("Table of contents"
    (begin
      (make-aux "table-of-contents" "toc-prefix" "toc")
-     (update-document "table-of-contents")))
+     (update-document "all")))
   (assuming (get-boolean-preference "gui:new bibliography dialogue")
     ("Bibliography" (open-bibliography-inserter)))
   (assuming (not (get-boolean-preference "gui:new bibliography dialogue"))
@@ -481,21 +481,21 @@
   ("Index" 
     (begin 
       (make-aux "the-index" "index-prefix" "idx")
-      (update-document "the-index")))
+      (update-document "all")))
   ("Glossary" 
     (begin
       (make-aux "the-glossary" "glossary-prefix" "gly")
-      (update-document "the-glossary")))
+      (update-document "all")))
   ;;("List of figures" (make-aux* "the-glossary*" "figure-list-prefix" "figure" "List of figures"))
   ;;("List of tables" (make-aux* "the-glossary*" "table-list-prefix" "table" "List of tables"))
   ("List of figures" 
     (begin
       (make-aux "list-of-figures" "figure-list-prefix" "figure")
-      (update-document "list-of-figures")))
+      (update-document "all")))
   ("List of tables" 
     (begin
       (make-aux "list-of-tables" "table-list-prefix" "table")
-      (update-document "list-of-tables"))))
+      (update-document "all"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Text menus for inserting block content
