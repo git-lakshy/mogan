@@ -139,6 +139,24 @@ edit_interface_rep::set_middle_footer () {
  * Set right footer with information about cursor position
  ******************************************************************************/
 
+// Cache for keyboard shortcuts
+static hashmap<string, tree> shortcut_cache ("");
+
+tree
+edit_interface_rep::get_shortcut_suffix (string cmd_s) {
+  if (shortcut_cache->contains (cmd_s)) return shortcut_cache[cmd_s];
+
+  object result_obj= call ("kbd-find-inv-binding", object (cmd_s));
+  string binding   = as_string (result_obj);
+  tree   result    = "";
+  if (binding != "" && binding != "#f") {
+    tree shortcut_tree= sv->kbd_system_rewrite (binding);
+    result            = concat (" [", shortcut_tree, "]");
+  }
+  shortcut_cache (cmd_s)= result;
+  return result;
+}
+
 void
 edit_interface_rep::set_right_footer (tree r) {
   SERVER (
@@ -156,9 +174,12 @@ edit_interface_rep::compute_text_footer (tree st) {
   if (r == "") r= "start";
   if (r == " ") r= "space";
   if (r == "space" && get_env_string (MODE) == "math") r= "apply";
-  if (starts (r, "<") && !starts (r, "<#"))
+  if (starts (r, "<") && !starts (r, "<#")) {
+    tree suffix= get_shortcut_suffix (r);
     if (cork_to_utf8 (r) != r) r= r * " (" * r (1, N (r) - 1) * ")";
-  if (starts (r, "<")) return verbatim (r);
+    if (suffix != "") return concat (verbatim (r), suffix);
+    return verbatim (r);
+  }
   return r;
 }
 
