@@ -336,8 +336,13 @@ edit_main_rep::print_snippet (url name, tree t, bool conserve_preamble) {
   assign (subtree (et, temp_root), copy (t));
 
   string s= suffix (name);
-  bool   bitmap=
-      (s == "png" || s == "jpg" || s == "jpeg" || s == "tif" || s == "tiff");
+  bool   bitmap= false;
+#ifdef USE_MUPDF_RENDERER
+  bitmap       = (s == "png");
+#else
+  bitmap= (s == "png" || s == "jpg" || s == "jpeg" || s == "tif"
+           || s == "tiff");
+#endif
 #ifndef QTTEXMACS
   bitmap= false;
 #endif
